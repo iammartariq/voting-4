@@ -1,190 +1,150 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import OtpVerification from "@/components/OtpVerification";
-
-// Mock Location Data
-const locationData = {
-  "Province A": {
-    "City A1": ["Area 1", "Area 2"],
-    "City A2": ["Area 3", "Area 4"]
-  },
-  "Province B": {
-    "City B1": ["Area 5", "Area 6"],
-    "City B2": ["Area 7", "Area 8"]
-  }
-};
+import client from "@/api/client";
 
 const VoterRegister = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState("register");
   const [isLoading, setIsLoading] = useState(false);
+  const [userId, setUserId] = useState(null);
+  
+  // Dropdown Data
+  const [provinces, setProvinces] = useState([]);
+  const [cities, setCities] = useState([]);
+  const [areas, setAreas] = useState([]);
 
   const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    nid: "",
-    dateOfBirth: "",
-    province: "",
-    city: "",
-    area: ""
+    name: "", email: "", cnic: "", password: "", province: "", city: "", area: ""
   });
-  const [errors, setErrors] = useState({});
 
-  const validate = () => {
-    const newErrors = {};
-    if (!formData.name.trim()) newErrors.name = "Name is required";
-    if (!formData.email.trim()) newErrors.email = "Email is required";
-    if (!formData.nid.trim() || formData.nid.length !== 10) newErrors.nid = "Valid 10-digit NID is required";
-    if (!formData.dateOfBirth) newErrors.dateOfBirth = "Date of birth is required";
-    if (!formData.province) newErrors.province = "Province is required";
-    if (!formData.city) newErrors.city = "City is required";
-    if (!formData.area) newErrors.area = "Area is required";
-    return newErrors;
-  };
+  // Fetch Provinces on Load
+  useEffect(() => {
+    client.get('/public/province').then(res => setProvinces(res.data));
+    client.get('/public/cities').then(res => setCities(res.data));
+    client.get('/public/areas').then(res => setAreas(res.data));
+  }, []);
+
+  // Filtering Logic
+  const filteredCities = cities.filter(c => {
+    const p = provinces.find(prov => prov.name === formData.province);
+    return p && c.provinceid === p.id;
+  });
+
+  const filteredAreas = areas.filter(a => {
+    const c = cities.find(city => city.name === formData.city);
+    return c && a.cityid === c.city_id; // Check backend response key (city_id vs id)
+  });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const newErrors = validate();
-    
-    if (Object.keys(newErrors).length === 0) {
-      setIsLoading(true);
-      
-      // Save temp location data for the session to use in Dashboard later
-      sessionStorage.setItem("tempVoterLocation", JSON.stringify({
-        province: formData.province,
-        city: formData.city,
-        area: formData.area
-      }));
-
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setIsLoading(false);
+    setIsLoading(true);
+    try {
+      const res = await client.post('/users/account/create', formData);
+      setUserId(res.data.userId);
       setStep("otp");
-      toast.success("OTP sent to your email.");
-    } else {
-      setErrors(newErrors);
+      toast.success("Account created! Please verify OTP.");
+    } catch (error) {
+      toast.error(error.response?.data?.error || "Registration failed");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleOtpVerify = async (otp) => {
     setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    if (otp === "123456") {
-        toast.success("Registration successful!");
-        navigate("/voter-login");
-    } else {
-        toast.error("Invalid Code");
+    try {
+      await client.post('/users/account/verify', { userId, otp });
+      toast.success("Verified successfully!");
+      navigate("/voter-login");
+    } catch (error) {
+      toast.error(error.response?.data?.error || "Invalid Code");
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
-
-  const handleChange = (name, value) => {
-    setFormData(prev => {
-        const updated = { ...prev, [name]: value };
-        // Reset child fields if parent changes
-        if (name === 'province') { updated.city = ""; updated.area = ""; }
-        if (name === 'city') { updated.area = ""; }
-        return updated;
-    });
-    if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
-  };
-
-  const getCities = () => formData.province ? Object.keys(locationData[formData.province]) : [];
-  const getAreas = () => (formData.province && formData.city) ? locationData[formData.province][formData.city] : [];
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navbar />
-      <div className="flex-1 flex items-center justify-center px-4 py-12">
-        <Card className="w-full max-w-md shadow-card">
+      <div className="flex-1 flex items-center justify-center px-4 py-8">
+        <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <div className="flex justify-center mb-4">
-              <div className="bg-primary/10 p-3 rounded-full">
-                <UserPlus className="h-8 w-8 text-primary" />
-              </div>
-            </div>
-            <CardTitle className="text-2xl">{step === "register" ? "Voter Registration" : "Verify Email"}</CardTitle>
+            <CardTitle className="text-2xl">Create Voter Account</CardTitle>
           </CardHeader>
           <CardContent>
             {step === "register" ? (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Full Name</Label>
-                  <Input value={formData.name} onChange={(e) => handleChange("name", e.target.value)} placeholder="John Doe" />
-                  {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
+              <form onSubmit={handleSubmit} className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label>Name</Label>
+                    <Input value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} required />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>CNIC</Label>
+                    <Input value={formData.cnic} onChange={(e) => setFormData({...formData, cnic: e.target.value})} placeholder="XXXXX-XXXXXXX-X" required />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label>Email</Label>
+                  <Input type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} required />
+                </div>
+                <div className="space-y-1">
+                  <Label>Password</Label>
+                  <Input type="password" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} required />
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Email Address</Label>
-                  <Input type="email" value={formData.email} onChange={(e) => handleChange("email", e.target.value)} placeholder="email@example.com" />
-                  {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
+                {/* Location Selects */}
+                <div className="space-y-1">
+                  <Label>Province</Label>
+                  <Select onValueChange={(v) => setFormData({...formData, province: v, city: "", area: ""})}>
+                    <SelectTrigger><SelectValue placeholder="Select Province" /></SelectTrigger>
+                    <SelectContent>
+                      {provinces.map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label>City</Label>
+                    <Select disabled={!formData.province} onValueChange={(v) => setFormData({...formData, city: v, area: ""})}>
+                      <SelectTrigger><SelectValue placeholder="Select City" /></SelectTrigger>
+                      <SelectContent>
+                        {filteredCities.map(c => <SelectItem key={c.city_id} value={c.city_name}>{c.city_name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Area</Label>
+                    <Select disabled={!formData.city} onValueChange={(v) => setFormData({...formData, area: v})}>
+                      <SelectTrigger><SelectValue placeholder="Select Area" /></SelectTrigger>
+                      <SelectContent>
+                        {filteredAreas.map(a => <SelectItem key={a.id} value={a.name}>{a.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>National ID</Label>
-                  <Input value={formData.nid} onChange={(e) => handleChange("nid", e.target.value)} maxLength="10" placeholder="10-digit NID" />
-                  {errors.nid && <p className="text-sm text-destructive">{errors.nid}</p>}
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Date of Birth</Label>
-                  <Input type="date" value={formData.dateOfBirth} onChange={(e) => handleChange("dateOfBirth", e.target.value)} />
-                </div>
-
-                {/* Requirement 6: Location Selection */}
-                <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-2 col-span-2">
-                        <Label>Province</Label>
-                        <Select value={formData.province} onValueChange={(val) => handleChange("province", val)}>
-                            <SelectTrigger><SelectValue placeholder="Select Province" /></SelectTrigger>
-                            <SelectContent>
-                                {Object.keys(locationData).map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                        {errors.province && <p className="text-sm text-destructive">{errors.province}</p>}
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label>City</Label>
-                        <Select value={formData.city} onValueChange={(val) => handleChange("city", val)} disabled={!formData.province}>
-                            <SelectTrigger><SelectValue placeholder="Select City" /></SelectTrigger>
-                            <SelectContent>
-                                {getCities().map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                        {errors.city && <p className="text-sm text-destructive">{errors.city}</p>}
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label>Area</Label>
-                        <Select value={formData.area} onValueChange={(val) => handleChange("area", val)} disabled={!formData.city}>
-                            <SelectTrigger><SelectValue placeholder="Select Area" /></SelectTrigger>
-                            <SelectContent>
-                                {getAreas().map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                        {errors.area && <p className="text-sm text-destructive">{errors.area}</p>}
-                    </div>
-                </div>
-
-                <Button type="submit" className="w-full" disabled={isLoading}>{isLoading ? "Processing..." : "Register"}</Button>
+                <Button className="w-full mt-2" disabled={isLoading}>Register</Button>
               </form>
             ) : (
-               <OtpVerification email={formData.email} onVerify={handleOtpVerify} onResend={async () => toast.success("Code resent")} isLoading={isLoading} />
+              <OtpVerification 
+                email={formData.email} 
+                onVerify={handleOtpVerify} 
+                onResend={() => client.post('/public/resend/otp', { userId, email: formData.email })} 
+                isLoading={isLoading} 
+              />
             )}
-            
-            <div className="mt-6 text-center">
-               {step === "register" && <p className="text-sm text-muted-foreground">Already have an account? <Link to="/voter-login" className="text-primary hover:underline">Login</Link></p>}
-            </div>
           </CardContent>
         </Card>
       </div>
