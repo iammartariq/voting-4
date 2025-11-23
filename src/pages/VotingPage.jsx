@@ -11,22 +11,30 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CheckCircle, ArrowLeft } from "lucide-react";
+import { CheckCircle, ArrowLeft, Users } from "lucide-react";
 import { toast } from "sonner";
-import { elections, candidates, recordVote } from "@/data/mockData";
+// CHANGE: Use Context instead of mockData
+import { useElection } from "@/contexts/ElectionContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
 const VotingPage = () => {
   const { electionId } = useParams();
   const navigate = useNavigate();
+  // CHANGE: Deconstruct from context
+  const { elections, candidates, recordVote } = useElection();
+  
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [voteRecorded, setVoteRecorded] = useState(false);
 
   const voterNid = sessionStorage.getItem("voterNid");
-  const election = elections.find((e) => e.id === parseInt(electionId));
-  const electionCandidates = candidates.filter((c) => c.electionId === parseInt(electionId));
+  
+  // Find election in live context state
+  const election = elections.find((e) => e.id === electionId || e.id === parseInt(electionId));
+  
+  // Find candidates for this election
+  const electionCandidates = candidates.filter((c) => c.electionId === electionId || c.electionId === parseInt(electionId));
 
   if (!election) {
     return (
@@ -35,7 +43,7 @@ const VotingPage = () => {
         <div className="flex-1 flex items-center justify-center">
           <Card className="max-w-md">
             <CardContent className="pt-6 text-center">
-              <p>Election not found</p>
+              <p>Election not found or invalid ID.</p>
               <Button onClick={() => navigate("/voter-dashboard")} className="mt-4">
                 Back to Dashboard
               </Button>
@@ -52,14 +60,15 @@ const VotingPage = () => {
     setShowConfirmDialog(true);
   };
 
-  const handleConfirmVote = () => {
-    const success = recordVote(voterNid, election.id);
+  const handleConfirmVote = async () => {
+    // CHANGE: Updated recordVote signature to match Context (electionId, candidateId, voterId)
+    const success = await recordVote(election.id, selectedCandidate.id, voterNid);
+    
     if (success) {
       setShowConfirmDialog(false);
       setVoteRecorded(true);
-      toast.success("Your vote has been recorded successfully!");
     } else {
-      toast.error("You have already voted in this election");
+        setShowConfirmDialog(false);
     }
   };
 
@@ -70,8 +79,8 @@ const VotingPage = () => {
         <div className="flex-1 flex items-center justify-center px-4">
           <Card className="max-w-md shadow-card text-center">
             <CardContent className="pt-12 pb-12">
-              <div className="bg-success/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle className="h-10 w-10 text-success" />
+              <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+                <CheckCircle className="h-10 w-10 text-green-600" />
               </div>
               <h2 className="text-2xl font-bold mb-4">Vote Recorded!</h2>
               <p className="text-muted-foreground mb-2">
@@ -112,7 +121,6 @@ const VotingPage = () => {
               {election.type}
             </Badge>
           </div>
-          <p className="text-muted-foreground">{election.description}</p>
           <div className="flex gap-6 mt-4 text-sm text-muted-foreground">
             <span>Start: {election.startDate}</span>
             <span>End: {election.endDate}</span>
@@ -127,32 +135,26 @@ const VotingPage = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {electionCandidates.map((candidate) => (
+          {electionCandidates.length > 0 ? electionCandidates.map((candidate) => (
             <Card key={candidate.id} className="shadow-card hover:shadow-hover transition-shadow">
               <CardHeader>
                 <div className="flex justify-center mb-4">
-                  <img
-                    src={candidate.photo}
-                    alt={candidate.name}
-                    className="w-32 h-32 rounded-full object-cover border-4 border-primary/20"
-                  />
+                    {candidate.image ? (
+                         <img
+                         src={candidate.image}
+                         alt={candidate.name}
+                         className="w-32 h-32 rounded-full object-cover border-4 border-primary/20"
+                       />
+                    ) : (
+                        <div className="w-32 h-32 rounded-full bg-secondary flex items-center justify-center border-4 border-primary/20">
+                            <Users className="h-12 w-12 text-muted-foreground" />
+                        </div>
+                    )}
                 </div>
                 <CardTitle className="text-center">{candidate.name}</CardTitle>
                 <CardDescription className="text-center">{candidate.party}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Age</p>
-                  <p className="font-medium">{candidate.age} years</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Experience</p>
-                  <p className="text-sm">{candidate.experience}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Manifesto</p>
-                  <p className="text-sm">{candidate.manifesto}</p>
-                </div>
                 <Button 
                   onClick={() => handleVoteClick(candidate)} 
                   className="w-full"
@@ -161,7 +163,11 @@ const VotingPage = () => {
                 </Button>
               </CardContent>
             </Card>
-          ))}
+          )) : (
+            <div className="col-span-full text-center py-10">
+                <p className="text-muted-foreground">No candidates registered for this election yet.</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -177,11 +183,17 @@ const VotingPage = () => {
           {selectedCandidate && (
             <div className="py-4">
               <div className="flex items-center gap-4 p-4 bg-secondary/30 rounded-lg">
-                <img
-                  src={selectedCandidate.photo}
-                  alt={selectedCandidate.name}
-                  className="w-16 h-16 rounded-full object-cover"
-                />
+                {selectedCandidate.image ? (
+                     <img
+                     src={selectedCandidate.image}
+                     alt={selectedCandidate.name}
+                     className="w-16 h-16 rounded-full object-cover"
+                   />
+                ) : (
+                    <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center">
+                        <Users className="h-6 w-6" />
+                    </div>
+                )}
                 <div>
                   <p className="font-semibold text-lg">{selectedCandidate.name}</p>
                   <p className="text-sm text-muted-foreground">{selectedCandidate.party}</p>

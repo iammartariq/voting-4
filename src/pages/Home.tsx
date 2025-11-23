@@ -4,8 +4,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Vote, Shield, Users, TrendingUp, CheckCircle, ArrowRight, UserCircle, Flag } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+// Import Context to get real stats
+import { useElection } from "@/contexts/ElectionContext";
 
 const Home = () => {
+  const { voters, parties, elections } = useElection();
+
   const features = [
     {
       icon: Shield,
@@ -53,10 +57,11 @@ const Home = () => {
     }
   ];
 
+  // Use approximate real data from Context
   const stats = [
-    { value: "50,000+", label: "Registered Voters" },
-    { value: "150+", label: "Political Parties" },
-    { value: "25+", label: "Elections Conducted" },
+    { value: `${voters.length}+`, label: "Registered Voters" },
+    { value: `${parties.length}+`, label: "Political Parties" },
+    { value: `${elections.length}+`, label: "Elections Conducted" },
     { value: "99.9%", label: "System Uptime" }
   ];
 

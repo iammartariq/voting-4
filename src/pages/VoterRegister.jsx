@@ -4,15 +4,28 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import OtpVerification from "@/components/OtpVerification";
 
+// Mock Location Data
+const locationData = {
+  "Province A": {
+    "City A1": ["Area 1", "Area 2"],
+    "City A2": ["Area 3", "Area 4"]
+  },
+  "Province B": {
+    "City B1": ["Area 5", "Area 6"],
+    "City B2": ["Area 7", "Area 8"]
+  }
+};
+
 const VoterRegister = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState("register"); // 'register' | 'otp'
+  const [step, setStep] = useState("register");
   const [isLoading, setIsLoading] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -20,25 +33,21 @@ const VoterRegister = () => {
     email: "",
     nid: "",
     dateOfBirth: "",
-    address: ""
+    province: "",
+    city: "",
+    area: ""
   });
   const [errors, setErrors] = useState({});
 
   const validate = () => {
     const newErrors = {};
     if (!formData.name.trim()) newErrors.name = "Name is required";
-    if (!formData.email.trim()) {
-      newErrors.email = "Email is required";
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = "Email is invalid";
-    }
-    if (!formData.nid.trim()) {
-      newErrors.nid = "National ID is required";
-    } else if (formData.nid.length !== 10) {
-      newErrors.nid = "National ID must be 10 digits";
-    }
+    if (!formData.email.trim()) newErrors.email = "Email is required";
+    if (!formData.nid.trim() || formData.nid.length !== 10) newErrors.nid = "Valid 10-digit NID is required";
     if (!formData.dateOfBirth) newErrors.dateOfBirth = "Date of birth is required";
-    if (!formData.address.trim()) newErrors.address = "Address is required";
+    if (!formData.province) newErrors.province = "Province is required";
+    if (!formData.city) newErrors.city = "City is required";
+    if (!formData.area) newErrors.area = "Area is required";
     return newErrors;
   };
 
@@ -48,12 +57,18 @@ const VoterRegister = () => {
     
     if (Object.keys(newErrors).length === 0) {
       setIsLoading(true);
-      // Simulate Backend API call for Registration + Sending OTP
-      await new Promise(resolve => setTimeout(resolve, 1000));
       
+      // Save temp location data for the session to use in Dashboard later
+      sessionStorage.setItem("tempVoterLocation", JSON.stringify({
+        province: formData.province,
+        city: formData.city,
+        area: formData.area
+      }));
+
+      await new Promise(resolve => setTimeout(resolve, 1000));
       setIsLoading(false);
       setStep("otp");
-      toast.success("Registration initiated. Please verify OTP sent to your email.");
+      toast.success("OTP sent to your email.");
     } else {
       setErrors(newErrors);
     }
@@ -61,11 +76,10 @@ const VoterRegister = () => {
 
   const handleOtpVerify = async (otp) => {
     setIsLoading(true);
-    // Simulate Backend API call for OTP Verification
     await new Promise(resolve => setTimeout(resolve, 1500));
 
     if (otp === "123456") {
-        toast.success("Registration successful! You can now login.");
+        toast.success("Registration successful!");
         navigate("/voter-login");
     } else {
         toast.error("Invalid Code");
@@ -73,18 +87,23 @@ const VoterRegister = () => {
     setIsLoading(false);
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: "" }));
-    }
+  const handleChange = (name, value) => {
+    setFormData(prev => {
+        const updated = { ...prev, [name]: value };
+        // Reset child fields if parent changes
+        if (name === 'province') { updated.city = ""; updated.area = ""; }
+        if (name === 'city') { updated.area = ""; }
+        return updated;
+    });
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
   };
+
+  const getCities = () => formData.province ? Object.keys(locationData[formData.province]) : [];
+  const getAreas = () => (formData.province && formData.city) ? locationData[formData.province][formData.city] : [];
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navbar />
-      
       <div className="flex-1 flex items-center justify-center px-4 py-12">
         <Card className="w-full max-w-md shadow-card">
           <CardHeader className="text-center">
@@ -93,113 +112,82 @@ const VoterRegister = () => {
                 <UserPlus className="h-8 w-8 text-primary" />
               </div>
             </div>
-            <CardTitle className="text-2xl">
-              {step === "register" ? "Voter Registration" : "Verify Email"}
-            </CardTitle>
-            <CardDescription>
-              {step === "register" ? "Create your account to participate" : "Enter the code sent to your email"}
-            </CardDescription>
+            <CardTitle className="text-2xl">{step === "register" ? "Voter Registration" : "Verify Email"}</CardTitle>
           </CardHeader>
           <CardContent>
             {step === "register" ? (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    type="text"
-                    placeholder="John Doe"
-                    value={formData.name}
-                    onChange={handleChange}
-                    className={errors.name ? "border-destructive" : ""}
-                  />
+                  <Label>Full Name</Label>
+                  <Input value={formData.name} onChange={(e) => handleChange("name", e.target.value)} placeholder="John Doe" />
                   {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="your.email@example.com"
-                    value={formData.email}
-                    onChange={handleChange}
-                    className={errors.email ? "border-destructive" : ""}
-                  />
+                  <Label>Email Address</Label>
+                  <Input type="email" value={formData.email} onChange={(e) => handleChange("email", e.target.value)} placeholder="email@example.com" />
                   {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="nid">National ID Number</Label>
-                  <Input
-                    id="nid"
-                    name="nid"
-                    type="text"
-                    placeholder="Enter 10-digit NID"
-                    maxLength="10"
-                    value={formData.nid}
-                    onChange={handleChange}
-                    className={errors.nid ? "border-destructive" : ""}
-                  />
+                  <Label>National ID</Label>
+                  <Input value={formData.nid} onChange={(e) => handleChange("nid", e.target.value)} maxLength="10" placeholder="10-digit NID" />
                   {errors.nid && <p className="text-sm text-destructive">{errors.nid}</p>}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="dateOfBirth">Date of Birth</Label>
-                  <Input
-                    id="dateOfBirth"
-                    name="dateOfBirth"
-                    type="date"
-                    value={formData.dateOfBirth}
-                    onChange={handleChange}
-                    className={errors.dateOfBirth ? "border-destructive" : ""}
-                  />
-                  {errors.dateOfBirth && <p className="text-sm text-destructive">{errors.dateOfBirth}</p>}
+                  <Label>Date of Birth</Label>
+                  <Input type="date" value={formData.dateOfBirth} onChange={(e) => handleChange("dateOfBirth", e.target.value)} />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="address">Address</Label>
-                  <Input
-                    id="address"
-                    name="address"
-                    type="text"
-                    placeholder="Your address"
-                    value={formData.address}
-                    onChange={handleChange}
-                    className={errors.address ? "border-destructive" : ""}
-                  />
-                  {errors.address && <p className="text-sm text-destructive">{errors.address}</p>}
+                {/* Requirement 6: Location Selection */}
+                <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-2 col-span-2">
+                        <Label>Province</Label>
+                        <Select value={formData.province} onValueChange={(val) => handleChange("province", val)}>
+                            <SelectTrigger><SelectValue placeholder="Select Province" /></SelectTrigger>
+                            <SelectContent>
+                                {Object.keys(locationData).map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        {errors.province && <p className="text-sm text-destructive">{errors.province}</p>}
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>City</Label>
+                        <Select value={formData.city} onValueChange={(val) => handleChange("city", val)} disabled={!formData.province}>
+                            <SelectTrigger><SelectValue placeholder="Select City" /></SelectTrigger>
+                            <SelectContent>
+                                {getCities().map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        {errors.city && <p className="text-sm text-destructive">{errors.city}</p>}
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Area</Label>
+                        <Select value={formData.area} onValueChange={(val) => handleChange("area", val)} disabled={!formData.city}>
+                            <SelectTrigger><SelectValue placeholder="Select Area" /></SelectTrigger>
+                            <SelectContent>
+                                {getAreas().map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        {errors.area && <p className="text-sm text-destructive">{errors.area}</p>}
+                    </div>
                 </div>
 
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Processing..." : "Register"}
-                </Button>
+                <Button type="submit" className="w-full" disabled={isLoading}>{isLoading ? "Processing..." : "Register"}</Button>
               </form>
             ) : (
-               <OtpVerification 
-                  email={formData.email}
-                  onVerify={handleOtpVerify}
-                  onResend={async () => { toast.success("Code resent") }}
-                  isLoading={isLoading}
-               />
+               <OtpVerification email={formData.email} onVerify={handleOtpVerify} onResend={async () => toast.success("Code resent")} isLoading={isLoading} />
             )}
-
+            
             <div className="mt-6 text-center">
-              {step === "register" && (
-                <p className="text-sm text-muted-foreground">
-                  Already have an account?{" "}
-                  <Link to="/voter-login" className="text-primary hover:underline font-medium">
-                    Login here
-                  </Link>
-                </p>
-              )}
+               {step === "register" && <p className="text-sm text-muted-foreground">Already have an account? <Link to="/voter-login" className="text-primary hover:underline">Login</Link></p>}
             </div>
           </CardContent>
         </Card>
       </div>
-
       <Footer />
     </div>
   );
