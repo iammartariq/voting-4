@@ -16,10 +16,20 @@ const Contact = () => {
     subject: "",
     message: ""
   });
-  const [errors, setErrors] = useState({});
+  const [errors, setErrors] = useState<{
+    name?: string;
+    email?: string;
+    subject?: string;
+    message?: string;
+  }>({});
 
   const validate = () => {
-    const newErrors = {};
+    const newErrors: {
+      name?: string;
+      email?: string;
+      subject?: string;
+      message?: string;
+    } = {};
     if (!formData.name.trim()) newErrors.name = "Name is required";
     if (!formData.email.trim()) {
       newErrors.email = "Email is required";

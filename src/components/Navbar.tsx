@@ -21,7 +21,7 @@ const Navbar = () => {
     { to: "/contact", label: "Contact" }
   ];
 
-  const isActive = (path) => location.pathname === path;
+  const isActive = (path: string) => location.pathname === path;
 
   return (
     <nav
