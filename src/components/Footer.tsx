@@ -94,14 +94,14 @@ const Footer = () => {
               <li className="flex items-start gap-3 text-sm sm:text-base text-muted-foreground group">
                 <Phone className="h-5 w-5 text-primary mt-0.5 group-hover:scale-110 transition-transform duration-200 flex-shrink-0" />
                 <a href="tel:+18008683669" className="hover:text-primary transition-colors">
-                  +1 (800) VOTE-NOW
+                  +92 (111) VOTE-NOW
                 </a>
               </li>
               <li className="flex items-start gap-3 text-sm sm:text-base text-muted-foreground group">
                 <MapPin className="h-5 w-5 text-primary mt-0.5 group-hover:scale-110 transition-transform duration-200 flex-shrink-0" />
                 <address className="not-italic">
-                  101 Constitution Ave,<br />
-                  Democracy City, DC 20001
+                  Election Commission,<br />
+                  Islamabad, Pakistan
                 </address>
               </li>
             </ul>
@@ -114,13 +114,13 @@ const Footer = () => {
             © {new Date().getFullYear()} VoteOnline Systems. All rights reserved.
           </p>
           <div className="flex flex-wrap justify-center gap-4 sm:gap-6 text-xs sm:text-sm text-muted-foreground">
-            <Link to="#" className="hover:text-primary hover:underline underline-offset-4 transition-colors duration-200">
+            <Link to="/privacy-policy" className="hover:text-primary hover:underline underline-offset-4 transition-colors duration-200">
               Privacy Policy
             </Link>
-            <Link to="#" className="hover:text-primary hover:underline underline-offset-4 transition-colors duration-200">
+            <Link to="/terms-of-service" className="hover:text-primary hover:underline underline-offset-4 transition-colors duration-200">
               Terms of Service
             </Link>
-            <Link to="#" className="hover:text-primary hover:underline underline-offset-4 transition-colors duration-200">
+            <Link to="/accessibility" className="hover:text-primary hover:underline underline-offset-4 transition-colors duration-200">
               Accessibility
             </Link>
           </div>

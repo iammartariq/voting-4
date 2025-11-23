@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+
 import Home from "./pages/Home";
 import VoterLogin from "./pages/VoterLogin";
 import VoterRegister from "./pages/VoterRegister";
@@ -18,6 +19,11 @@ import PartyLogin from "./pages/PartyLogin";
 import PartyRegister from "./pages/PartyRegister";
 import PartyDashboard from "./pages/PartyDashboard";
 
+// Newly added pages
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
+import Accessibility from "./pages/Accessibility";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -27,6 +33,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
+          {/* Main Routes */}
           <Route path="/" element={<Home />} />
           <Route path="/voter-login" element={<VoterLogin />} />
           <Route path="/voter-register" element={<VoterRegister />} />
@@ -40,7 +47,13 @@ const App = () => (
           <Route path="/party-dashboard" element={<PartyDashboard />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+
+          {/* Newly Added Routes */}
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/terms-of-service" element={<TermsOfService />} />
+          <Route path="/accessibility" element={<Accessibility />} />
+
+          {/* Catch-All Route */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
